@@ -21,6 +21,7 @@ func main() {
 	for i := 0; i < 50; i++ {
 		fmt.Println(n0)
 		fib := n0 + n1
+
 		n0 = n1
 		n1 = fib
 	}
