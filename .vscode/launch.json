@@ -9,8 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "console": "integratedTerminal",
-            "program": "fizz_buzz/main.go",
+            "program": "string_reverse/main.go",
             "env": {},
             "args": []
         }
