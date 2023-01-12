@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 var (
