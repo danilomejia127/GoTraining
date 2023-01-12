@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 )
 
 /*
@@ -18,52 +19,79 @@ import (
  *
  */
 func main() {
-
-	for k, elem := range getMorseCode() {
-		fmt.Println(k + "=" + elem)
-	}
-
+	message := "Rock is amazing"
+	delimiter := " "
+	fmt.Println(encodeMessage(message, delimiter))
 }
 
-func getMorseCode() map[string]string {
-	var codeMorse = make(map[string]string)
-	codeMorse["A"] = "-."
-	codeMorse["B"] = "-..."
-	codeMorse["C"] = "-.-."
-	codeMorse["D"] = "-.."
-	codeMorse["E"] = "."
-	codeMorse["F"] = "..-."
-	codeMorse["G"] = "--."
-	codeMorse["H"] = "...."
-	codeMorse["I"] = "..-"
-	codeMorse["J"] = ".---"
-	codeMorse["K"] = "-.."
-	codeMorse["L"] = ".-.."
-	codeMorse["M"] = "--"
-	codeMorse["Ñ"] = "--.--"
-	codeMorse["N"] = "-."
-	codeMorse["O"] = "---"
-	codeMorse["P"] = ".--."
-	codeMorse["Q"] = "--.-"
-	codeMorse["R"] = ".-."
-	codeMorse["S"] = "..."
-	codeMorse["T"] = "-"
-	codeMorse["U"] = ".."
-	codeMorse["V"] = "...-"
-	codeMorse["W"] = ".--"
-	codeMorse["X"] = "-..-"
-	codeMorse["Y"] = "-.--"
-	codeMorse["Z"] = "--.."
-	codeMorse["0"] = "------"
-	codeMorse["1"] = ".----"
-	codeMorse["2"] = "..---"
-	codeMorse["3"] = "...--"
-	codeMorse["4"] = "....-"
-	codeMorse["5"] = "....."
-	codeMorse["6"] = "-...."
-	codeMorse["7"] = "--..."
-	codeMorse["8"] = "---.."
-	codeMorse["9"] = "----."
+func encodeMessage(message string, delimiter string) string {
+	var output string
+	message = strings.ToUpper(message)
+	words := strings.Split(message, delimiter)
+	for _, word := range words {
+		word := encodeWord(word, delimiter)
+		if word != "" {
+			output += word
+		}
+	}
+	return output
+}
 
-	return codeMorse
+func encodeWord(word string, delimiter string) string {
+	var morse string
+	for i := 0; i < len(word); i++ {
+		code := morsemap[word[i:i+1]]
+		if code != "" {
+			morse += code + delimiter
+		}
+	}
+	return morse
+}
+
+var morsemap = map[string]string{
+	"A": ".-",
+	"B": "-...",
+	"C": "-.-.",
+	"D": "-..",
+	"E": ".",
+	"F": "..-.",
+	"G": "--.",
+	"H": "....",
+	"I": "..",
+	"J": ".---",
+	"K": "-.-",
+	"L": ".-..",
+	"M": "--",
+	"N": "-.",
+	"O": "---",
+	"P": ".--.",
+	"Q": "--.-",
+	"R": ".-.",
+	"S": "...",
+	"T": "-",
+	"U": "..-",
+	"V": "...-",
+	"W": ".--",
+	"X": "-..-",
+	"Y": "-.--",
+	"Z": "--..",
+	"1": ".----",
+	"2": "..---",
+	"3": "...--",
+	"4": "....-",
+	"5": ".....",
+	"6": "-....",
+	"7": "--...",
+	"8": "---..",
+	"9": "----.",
+	"0": "-----",
+	".": ".-.-.-",
+	",": "--..--",
+	"?": "..--..",
+	"!": "-.-.--",
+	"-": "-....-",
+	"/": "-..-.",
+	"@": ".--.-.",
+	"(": "-.--.",
+	")": "-.--.-",
 }
