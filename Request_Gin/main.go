@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -52,14 +53,17 @@ func createMessages(c *gin.Context) {
 		return
 	}
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	u, _ := url.ParseRequestURI(apiUrl)
 	u.Path = resource
 	urlStr := u.String()
 	var buf bytes.Buffer
 	siteID := siteSellerID.Site
 
-	for _, seller := range siteSellerID.Sellers {
+	total := len(siteSellerID.Sellers)
+	for i, seller := range siteSellerID.Sellers {
 		rgg := RefreshGoldenGate{}
 		rgg.Msg.ID.SiteID = siteID
 		rgg.Msg.ID.SellerID = seller
@@ -73,33 +77,27 @@ func createMessages(c *gin.Context) {
 
 		req, err := http.NewRequest(http.MethodPost, urlStr, &buf)
 		req.Header.Add("X-Tiger-Token", "Token_Here")
-		if err != nil {
-			c.JSONP(500, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
+		var resp *http.Response
 
-		resp, err := client.Do(req)
 		if err != nil {
-			c.JSONP(500, gin.H{
-				"message": err.Error(),
-			})
-			return
-		}
+			fmt.Printf("%v \n", err.Error())
+		} else {
+			resp, err = client.Do(req)
+			if err != nil {
+				fmt.Printf("%v \n", err.Error())
+			}
 
+		}
 		bytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			c.JSONP(500, gin.H{
-				"message": err.Error(),
-			})
-			return
+			fmt.Printf("%v \n", err.Error())
 		}
 
-		fmt.Println(resp.Status)
+		fmt.Printf("%v of %v\n", i, total)
 		fmt.Println(seller)
+		fmt.Println(resp.Status)
 		fmt.Println(string(bytes))
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(50 * time.Millisecond)
 	}
 	return
 }
