@@ -14,7 +14,7 @@ import (
 
 func main() {
 	// Open the gzipped file
-	gzippedFile, err := os.ReadFile("gzip_to_string/olvue4mdwa32jcfi24jkpq7nvy.json.gz")
+	gzippedFile, err := os.ReadFile("gzip_to_string/22wqaueduq3nhhagjvievoevim.json.gz")
 	if err != nil {
 		panic(err)
 	}
@@ -33,6 +33,8 @@ func getKeyInfosFromFile(raw []byte) ([]KeyInfo, error) {
 	}
 
 	scanner := bufio.NewScanner(gzreader)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
 	scanner.Split(bufio.ScanLines)
 
 	result := make([]KeyInfo, 0, 10)

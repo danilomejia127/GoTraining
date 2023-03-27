@@ -2,5 +2,5 @@
 .vscode/launch.json
 */launch.json
 .vscode/settings.json
-*/gzip_to_string/*.json
-*/gzip_to_string/*.json.gz
+/gzip_to_string/*.json
+/gzip_to_string/*.json.gz
