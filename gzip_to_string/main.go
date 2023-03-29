@@ -25,7 +25,7 @@ const (
 func main() {
 	start := time.Now()
 	// Open the gzipped file
-	gzippedFile, err := os.ReadFile("gzip_to_string/22wqaueduq3nhhagjvievoevim.json.gz")
+	gzippedFile, err := os.ReadFile("gzip_to_string/vm7xps3xtm4oblgve52xpyalve.json.gz")
 	if err != nil {
 		panic(err)
 	}
@@ -45,6 +45,7 @@ func main() {
 	end := time.Now()
 	duration := end.Sub(start)
 	fmt.Println("Tiempo transcurrido:", duration)
+	fmt.Println(time.Now())
 }
 
 func sendDataToKvs(data []WrapperKvsV2, size int) error {
@@ -136,23 +137,32 @@ func getKeyInfosFromFile(raw []byte) ([]WrapperKvsV2, error) {
 			return []WrapperKvsV2{}, err
 		}
 
-		var innerValue InnerValue
+		var (
+			key        string
+			innerValue InnerValue
+		)
 
-		err = json.Unmarshal(value, &innerValue)
+		key = item.Item.Key.S
+		// use the ParseInt() Function on string
+		_, err = strconv.ParseInt(key, 10, 64)
 		if err != nil {
-			fmt.Errorf("failed json.Unmarshal InnerValue %w", err)
-			return []WrapperKvsV2{}, err
-		}
-
-		keyInfo := WrapperKvsV2{
-			Key:   item.Item.Key.S,
-			Value: innerValue,
-		}
-
-		if keyInfo.Value.IsInStorage {
-			fmt.Printf("In Storage %v\n", keyInfo.Key)
+			fmt.Printf("Revisar key %v\n", key)
 		} else {
-			result = append(result, keyInfo)
+			err = json.Unmarshal(value, &innerValue)
+			if err != nil {
+				fmt.Errorf("failed json.Unmarshal InnerValue %w", err)
+				return []WrapperKvsV2{}, err
+			}
+			keyInfo := WrapperKvsV2{
+				Key:   key,
+				Value: innerValue,
+			}
+
+			if keyInfo.Value.IsInStorage {
+				fmt.Printf("In Storage %v\n", keyInfo.Key)
+			} else {
+				result = append(result, keyInfo)
+			}
 		}
 	}
 
