@@ -2,62 +2,32 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"time"
 )
 
-
-// shout has two parameters: a receive only chan ping, and a send only chan pong.
-// Note the use of <- in function signature. It simply takes whatever
-// string it gets from the ping channel,  converts it to uppercase and
-// appends a few exclamation marks, and then sends the transformed text to the pong channel.
-func shout(ping <-chan string, pong chan<- string) {
+func listenToChan(ch chan int) {
 	for {
-		// read from the ping channel. Note that the GoRoutine waits here -- it blocks until
-		// something is received on this channel.
-		s := <-ping
+		// print a got data message
+		i := <-ch
+		fmt.Println("Got", i, "from channel")
 
-		pong <- fmt.Sprintf("%s!!!", strings.ToUpper(s))
+		// simulate doing a lot of work
+		time.Sleep(1 * time.Second)
 	}
 }
 
 func main() {
-	// create two channels. Ping is what we send to, and pong is what comes back.
-	ping := make(chan string)
-	pong := make(chan string)
+	ch := make(chan int, 10)
 
-	// start a goroutine
-	go shout(ping, pong)
+	go listenToChan(ch)
 
-	fmt.Println("Type something and press ENTER (enter Q to quit)")
-
-	for {
-		// print a prompt
-		fmt.Print("-> ")
-
-		// get user input
-		var userInput string
-		_, _ = fmt.Scanln(&userInput)
-
-		if userInput == strings.ToLower("q") {
-			// jump out of for loop
-			break
-		}
-
-		// send userInput to "ping" channel
-		ping <- userInput
-
-		// wait for a response from the pong channel. Again, program
-		// blocks (pauses) until it receives something from 
-		// that channel.
-		response := <-pong
-
-		// print the response to the console.
-		fmt.Println("Response:", response)
+	for i := 0; i <= 100; i++ {
+		// the first 10 times through this loop, things go quickly; after that, things slow down.
+		fmt.Println("sending", i, "to channel...")
+		ch <- i
+		fmt.Println("sent", i, "to channel!")
 	}
 
-	fmt.Println("All done. Closing channels.")
-
-	// close the channels
-	close(ping)
-	close(pong)
+	fmt.Println("Done!")
+	close(ch)
 }
