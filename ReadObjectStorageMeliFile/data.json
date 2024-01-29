@@ -1,0 +1,29 @@
+[
+{
+  "Item": {
+    "key": {
+      "S": "181594065"
+    },
+    "metadata": {
+      "S": "{\"region\":\"useast1\"}"
+    },
+    "version": {
+      "N": "0"
+    },
+    "last_updated": {
+      "S": "2023-03-29T21:41:19.174591Z"
+    },
+    "date_created": {
+      "S": "2023-03-29T21:41:19.174Z"
+    },
+    "compressed_value": {
+      "B": "H4sIAAAAAAAAAEWNy1KDMABF/yVr0SQQEWZcCFVIR9tSSnjswvsRSlvoQOv478JGd3fO3DnnG6z4wIEOzKKZtqt3tD0446b2zu7YdYm9FmkrSt6yPJTZPbW0IcBMCfGEIos1AdausSWuEdPGMBBD5BOYTHQXY9Jzn4hANsrMRyI+7u9WEdJbLIfCCSujqJ2KXF4Mt1PNyhiTlmHuf5xnT50GGxhjlEdBWcc2ayJ/n8+upX2L9tT+351lfrUaXnsWnd2QXvnTm/cKHgDtza49XbK+z1Kg51z02QLp0R26Cy+yP/bJ+8E7pXxYfgBDjCUEJaQckKorSCf4USUyUZVnFUtQ0SEEP7/c0lRhMAEAAA=="
+    },
+    "last_updated_micros": {
+      "N": "1680126079174591"
+    }
+  }
+},
+{"Item": {"key": {"S": "181594065"}, "metadata": {"S": "{\"region\":\"useast1\"}"},"version": {"N": "0"}, "last_updated":{"S": "2023-03-29T21:41:19.174591Z"}, "date_created": {"S": "2023-03-29T21:41:19.174Z"}, "compressed_value": {"B": "H4sIAAAAAAAAAEWNy1KDMABF/yVr0SQQEWZcCFVIR9tSSnjswvsRSlvoQOv478JGd3fO3DnnG6z4wIEOzKKZtqt3tD0446b2zu7YdYm9FmkrSt6yPJTZPbW0IcBMCfGEIos1AdausSWuEdPGMBBD5BOYTHQXY9Jzn4hANsrMRyI+7u9WEdJbLIfCCSujqJ2KXF4Mt1PNyhiTlmHuf5xnT50GGxhjlEdBWcc2ayJ/n8+upX2L9tT+351lfrUaXnsWnd2QXvnTm/cKHgDtza49XbK+z1Kg51z02QLp0R26Cy+yP/bJ+8E7pXxYfgBDjCUEJaQckKorSCf4USUyUZVnFUtQ0SEEP7/c0lRhMAEAAA=="}, "last_updated_micros": {"N": "1680126079174591"}}
+}
+]
