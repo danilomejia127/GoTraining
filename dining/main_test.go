@@ -20,8 +20,8 @@ func Test_dine(t *testing.T) {
 }
 
 func Test_dineWithVaryingDelays(t *testing.T) {
-	var theTests = []struct{
-		name string
+	var theTests = []struct {
+		name  string
 		delay time.Duration
 	}{
 		{"zero delay", time.Second * 0},
