@@ -26,13 +26,19 @@ type DataCustom struct {
 }
 
 func CompareData(sellers []int) []DataComparition {
+	token := "Bearer "
+	prodURL := "https://production-reader-syncsvc_payment-methods-read-v2.furyapps.io"
+	clonURL := "https://production-reader-comp-clon-readv2.melioffice.com"
+	stagingURL := "https://production-reader-comp-staging-readv2.melioffice.com"
+
 	results := make([]DataComparition, 0)
 
 	for _, seller := range sellers {
 		sellerResponse := DataComparition{
-			SellerId: seller,
-			InProd:   getProdCustom(seller),
-			InClon:   getClonCustom(seller),
+			SellerId:  seller,
+			InProd:    getDataCustomFromURL(prodURL, seller, token),
+			InClon:    getDataCustomFromURL(clonURL, seller, token),
+			InStaging: getDataCustomFromURL(stagingURL, seller, token),
 		}
 
 		results = append(results, sellerResponse)
@@ -41,16 +47,16 @@ func CompareData(sellers []int) []DataComparition {
 	return results
 }
 
-func getProdCustom(seller int) bool {
-	prodURL := fmt.Sprintf("https://production-reader-syncsvc_payment-methods-read-v2.furyapps.io/v2/payment-methods/internal/customizations?collector_id=%d", seller)
+func getDataCustomFromURL(url string, seller int, token string) bool {
+	urlFull := fmt.Sprintf("%s/v2/payment-methods/internal/customizations?collector_id=%d", url, seller)
 
 	headers := map[string]string{
-		"X-Tiger-Token": "Bearer ",
+		"X-Tiger-Token": token,
 	}
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", prodURL, nil)
+	req, err := http.NewRequest("GET", urlFull, nil)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -81,7 +87,7 @@ func getProdCustom(seller int) bool {
 		return false
 	}
 
-	result, err := isEmptyDataCustom(dataCustom)
+	result, err := isDataInKVS(dataCustom)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -90,17 +96,40 @@ func getProdCustom(seller int) bool {
 	return result
 }
 
-func getClonCustom(seller int) bool {
-
-	return false
-}
-
-func isEmptyDataCustom(dataCustom DataCustom) (bool, error) {
+func isDataInKVS(dataCustom DataCustom) (bool, error) {
 	if len(dataCustom.CustomPaymentMethods) == 0 && len(dataCustom.Exclusions) == 0 &&
 		dataCustom.Groups == nil && len(dataCustom.AmountAllowed) == 0 && dataCustom.OwnPromosByUser == nil {
 
-		return true, nil
+		return false, nil
 	}
 
-	return false, nil
+	return true, nil
+}
+
+func HomologateCustomData(dataComparition []DataComparition) {
+	for _, dataSeller := range dataComparition {
+		if dataSeller.InProd == false && dataSeller.InClon == false && dataSeller.InStaging == true {
+			fmt.Println(fmt.Sprintf("Eliminar en InStaging %d", dataSeller.SellerId))
+		}
+
+		if dataSeller.InProd == false && dataSeller.InClon == true && dataSeller.InStaging == false {
+			fmt.Println(fmt.Sprintf("Eliminar en InClon %d", dataSeller.SellerId))
+		}
+
+		if dataSeller.InProd == false && dataSeller.InClon == true && dataSeller.InStaging == true {
+			fmt.Println(fmt.Sprintf("Eliminar en InClon y InStaging %d", dataSeller.SellerId))
+		}
+
+		if dataSeller.InProd == true && dataSeller.InClon == false && dataSeller.InStaging == false {
+			fmt.Println(fmt.Sprintf("Crear en InClon y InStaging %d", dataSeller.SellerId))
+		}
+
+		if dataSeller.InProd == true && dataSeller.InClon == false && dataSeller.InStaging == true {
+			fmt.Println(fmt.Sprintf("Crear en InClon %d", dataSeller.SellerId))
+		}
+
+		if dataSeller.InProd == true && dataSeller.InClon == true && dataSeller.InStaging == false {
+			fmt.Println(fmt.Sprintf("Crear en InStaging %d", dataSeller.SellerId))
+		}
+	}
 }

@@ -47,6 +47,8 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	dataProcess := services.CompareData(inputData)
 
+	services.HomologateCustomData(dataProcess)
+
 	// Codificar la respuesta JSON
 	response, err := json.Marshal(dataProcess)
 	if err != nil {
