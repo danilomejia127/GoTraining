@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-
 	http.HandleFunc("/pir_vs_pmc", handlePostRequest)
 
 	// Iniciar el servidor en el puerto 8080
@@ -26,6 +25,14 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token := r.Header.Get("X-Tiger-Token")
+	if token == "" {
+		http.Error(w, "Se esperaba un token en la cabecera X-Tiger-Token", http.StatusUnauthorized)
+		return
+	}
+
+	services.SetToken(token)
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error al leer el cuerpo del request", http.StatusInternalServerError)
@@ -38,7 +45,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Decodificar el cuerpo del request JSON
-	var inputData []int
+	var inputData services.InputData
 	err = json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
@@ -47,10 +54,10 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	dataProcess := services.CompareData(inputData)
 
-	services.HomologateCustomData(dataProcess)
+	dataResponse := services.HomologateCustomData(dataProcess)
 
 	// Codificar la respuesta JSON
-	response, err := json.Marshal(dataProcess)
+	response, err := json.Marshal(dataResponse)
 	if err != nil {
 		http.Error(w, "Error al codificar la respuesta JSON", http.StatusInternalServerError)
 		return
