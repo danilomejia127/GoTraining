@@ -11,10 +11,14 @@ import (
 
 // Scope para eliminación production-synchronizer-stg--payment-methods-read-v2.furyapps.io
 const (
+	prodReaderURL         = "https://production-reader-syncsvc_payment-methods-read-v2.furyapps.io"
+	clonReaderURL         = "https://production-reader-comp-clon-readv2.melioffice.com"
+	stagingReaderURL      = "https://production-reader-comp-staging-readv2.melioffice.com"
 	createStagingURL      = "https://production-synchronizer-stgweb--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
 	createProdAndCloneURL = "https://production-synchronizer-v2--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
 	deleteClonURL         = "https://production-synchronizer-clon--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
 	deleteStagingURL      = "https://production-synchronizer-stg--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
+	refreshProdURL        = "https://production-synchronizer-v2--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
 )
 
 var (
@@ -22,8 +26,9 @@ var (
 )
 
 type InputData struct {
-	SiteID    string `json:"site_id"`
-	SellerIDs []int  `json:"seller_ids"`
+	RefreshProd bool   `json:"refresh_prod"`
+	SiteID      string `json:"site_id"`
+	SellerIDs   []int  `json:"seller_ids"`
 }
 
 type DataComparition struct {
@@ -65,25 +70,30 @@ func SetToken(t string) {
 }
 
 func CompareData(inputData InputData) []DataComparition {
-	prodURL := "https://production-reader-syncsvc_payment-methods-read-v2.furyapps.io"
-	clonURL := "https://production-reader-comp-clon-readv2.melioffice.com"
-	stagingURL := "https://production-reader-comp-staging-readv2.melioffice.com"
-
 	results := make([]DataComparition, 0)
+	refreshProdData(inputData)
 
 	for _, seller := range inputData.SellerIDs {
 		sellerResponse := DataComparition{
 			SiteID:    inputData.SiteID,
 			SellerID:  seller,
-			InProd:    getDataCustomFromURL(prodURL, seller),
-			InClon:    getDataCustomFromURL(clonURL, seller),
-			InStaging: getDataCustomFromURL(stagingURL, seller),
+			InProd:    getDataCustomFromURL(prodReaderURL, seller),
+			InClon:    getDataCustomFromURL(clonReaderURL, seller),
+			InStaging: getDataCustomFromURL(stagingReaderURL, seller),
 		}
 
 		results = append(results, sellerResponse)
 	}
 
 	return results
+}
+
+func refreshProdData(inputData InputData) {
+	if inputData.RefreshProd {
+		for _, seller := range inputData.SellerIDs {
+			createCustomData(refreshProdURL, inputData.SiteID, seller, "prod")
+		}
+	}
 }
 
 func getDataCustomFromURL(url string, seller int) bool {
