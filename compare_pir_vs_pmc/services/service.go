@@ -11,7 +11,10 @@ import (
 
 // Scope para eliminación production-synchronizer-stg--payment-methods-read-v2.furyapps.io
 const (
-	createStagingURL = "https://production-synchronizer-stgweb--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
+	createStagingURL      = "https://production-synchronizer-stgweb--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
+	createProdAndCloneURL = "https://production-synchronizer-v2--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
+	deleteClonURL         = "https://production-synchronizer-clon--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
+	deleteStagingURL      = "https://production-synchronizer-stg--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
 )
 
 var (
@@ -147,20 +150,30 @@ func HomologateCustomData(dataComparition []DataComparition) []DataResponse {
 			OperationDetail: "Existe en los tres entornos",
 		}
 
+		if dataSeller.InProd == false && dataSeller.InClon == false && dataSeller.InStaging == false {
+			dataResponse.OperationDetail = "No existe en ningún entorno"
+		}
+
 		if dataSeller.InProd == false && dataSeller.InClon == false && dataSeller.InStaging == true {
-			dataResponse.OperationDetail = fmt.Sprintf("Eliminar en InStaging %d", dataSeller.SellerID)
+			deletedStaging := deleteDataCustomFromURL(deleteStagingURL, dataSeller.SellerID)
+			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InStaging %s", dataSeller.SellerID, strconv.FormatBool(deletedStaging))
 		}
 
 		if dataSeller.InProd == false && dataSeller.InClon == true && dataSeller.InStaging == false {
-			dataResponse.OperationDetail = fmt.Sprintf("Eliminar en InClon %d", dataSeller.SellerID)
+			deletedClon := deleteDataCustomFromURL(deleteClonURL, dataSeller.SellerID)
+			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InClon %s", dataSeller.SellerID, strconv.FormatBool(deletedClon))
 		}
 
 		if dataSeller.InProd == false && dataSeller.InClon == true && dataSeller.InStaging == true {
-			dataResponse.OperationDetail = fmt.Sprintf("Eliminar en InClon y InStaging %d", dataSeller.SellerID)
+			deletedClon := deleteDataCustomFromURL(deleteClonURL, dataSeller.SellerID)
+			deletedStaging := deleteDataCustomFromURL(deleteStagingURL, dataSeller.SellerID)
+			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InClon %s y InStaging %s", dataSeller.SellerID, strconv.FormatBool(deletedClon), strconv.FormatBool(deletedStaging))
 		}
 
 		if dataSeller.InProd == true && dataSeller.InClon == false && dataSeller.InStaging == false {
-			dataResponse.OperationDetail = fmt.Sprintf("Crear en InClon y InStaging %d", dataSeller.SellerID)
+			createdStaging := createCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
+			createdProd := createCustomData(createProdAndCloneURL, dataSeller.SiteID, dataSeller.SellerID, "prodAndClone")
+			dataResponse.OperationDetail = fmt.Sprintf("Se creó Prod %s and InStaging %s %d", strconv.FormatBool(createdProd), strconv.FormatBool(createdStaging), dataSeller.SellerID)
 		}
 
 		if dataSeller.InProd == true && dataSeller.InClon == false && dataSeller.InStaging == true {
@@ -168,7 +181,7 @@ func HomologateCustomData(dataComparition []DataComparition) []DataResponse {
 		}
 
 		if dataSeller.InProd == true && dataSeller.InClon == true && dataSeller.InStaging == false {
-			created := createCustomData(dataSeller.SiteID, dataSeller.SellerID)
+			created := createCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó InStaging %d %s", dataSeller.SellerID, strconv.FormatBool(created))
 		}
 
@@ -178,7 +191,7 @@ func HomologateCustomData(dataComparition []DataComparition) []DataResponse {
 	return dataResponseList
 }
 
-func createCustomData(siteID string, sellerID int) bool {
+func createCustomData(refreshURL string, siteID string, sellerID int, scope string) bool {
 	msg := RefreshMessage{}
 	msg.Msg.ID.SiteID = siteID
 	msg.Msg.ID.SellerID = strconv.Itoa(sellerID)
@@ -191,7 +204,7 @@ func createCustomData(siteID string, sellerID int) bool {
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", createStagingURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", refreshURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -212,6 +225,37 @@ func createCustomData(siteID string, sellerID int) bool {
 
 	// validar si el status code es 200
 	if resp.StatusCode == 200 {
+		return true
+	}
+
+	fmt.Println(fmt.Sprintf("Error al crear en scope: %s status: %d %s error: %s", scope, sellerID, resp.Status, resp.Body))
+
+	return false
+}
+
+func deleteDataCustomFromURL(url string, seller int) bool {
+	urlFull := url + fmt.Sprintf("%d", seller)
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest("DELETE", urlFull, nil)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	for key, value := range headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 204 {
 		return true
 	}
 

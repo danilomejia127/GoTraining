@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/services"
 	"io"
 	"net/http"
+
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/services"
 )
 
 func main() {
