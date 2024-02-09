@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"io"
 	"net/http"
 
@@ -136,7 +137,7 @@ func validateToken(r *http.Request) error {
 		return fmt.Errorf("se esperaba un token en la cabecera X-Tiger-Token")
 	}
 
-	services.SetToken(token)
+	apicalls.SetToken(token)
 
 	return nil
 }

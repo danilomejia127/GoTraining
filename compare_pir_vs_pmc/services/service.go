@@ -1,9 +1,9 @@
 package services
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"io"
 	"net/http"
 	"strconv"
@@ -20,10 +20,6 @@ const (
 	prodSyncStgReadV2URL  = "https://production-synchronizer-stg--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
 	prodSyncReadV2URL     = "https://production-synchronizer-v2--payment-methods-read-v2.furyapps.io/pm-core/repository/custom/"
 	refreshProdURL        = "https://production-synchronizer-v2--payment-methods-synchronizer.furyapps.io/v2/payment-methods/golden-gate/refresh"
-)
-
-var (
-	headers = map[string]string{}
 )
 
 type InputData struct {
@@ -126,12 +122,6 @@ type LastUpdatedKVS struct {
 	StagingLastUpdated string `json:"stag_last_updated"`
 }
 
-func SetToken(t string) {
-	headers = map[string]string{
-		"X-Tiger-Token": t,
-	}
-}
-
 func CompareData(inputData InputData) []DataResponse {
 	results := make([]DataResponse, 0)
 	refreshProdData(inputData)
@@ -154,7 +144,7 @@ func CompareData(inputData InputData) []DataResponse {
 func refreshProdData(inputData InputData) {
 	if inputData.RefreshProd {
 		for _, seller := range inputData.SellerIDs {
-			createCustomData(refreshProdURL, inputData.SiteID, seller, "prod")
+			apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, seller, "prod")
 		}
 	}
 }
@@ -170,7 +160,7 @@ func getDataCustomFromURL(url string, seller int) *SellerAnalysis {
 		return nil
 	}
 
-	for key, value := range headers {
+	for key, value := range apicalls.Headers {
 		req.Header.Add(key, value)
 	}
 
@@ -261,8 +251,8 @@ func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 		}
 
 		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == false && dataSeller.StagingData.ExistsInKVS == false {
-			createdStaging := createCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
-			createdProd := createCustomData(createProdAndCloneURL, dataSeller.SiteID, dataSeller.SellerID, "prodAndClone")
+			createdStaging := apicalls.CreateCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
+			createdProd := apicalls.CreateCustomData(createProdAndCloneURL, dataSeller.SiteID, dataSeller.SellerID, "prodAndClone")
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó Prod %s and InStaging %s %d", strconv.FormatBool(createdProd), strconv.FormatBool(createdStaging), dataSeller.SellerID)
 		}
 
@@ -271,7 +261,7 @@ func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 		}
 
 		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == true && dataSeller.StagingData.ExistsInKVS == false {
-			created := createCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
+			created := apicalls.CreateCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó InStaging %d %s", dataSeller.SellerID, strconv.FormatBool(created))
 		}
 
@@ -311,48 +301,6 @@ func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 	return dataResponseList
 }
 
-func createCustomData(refreshURL string, siteID string, sellerID int, scope string) bool {
-	msg := RefreshMessage{}
-	msg.Msg.ID.SiteID = siteID
-	msg.Msg.ID.SellerID = strconv.Itoa(sellerID)
-
-	jsonData, err := json.Marshal(msg)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	client := &http.Client{}
-
-	req, err := http.NewRequest("POST", refreshURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	for key, value := range headers {
-		req.Header.Add(key, value)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	// validar si el status code es 200
-	if resp.StatusCode == 200 {
-		return true
-	}
-
-	fmt.Println(fmt.Sprintf("Error al crear en scope: %s status: %d %s error: %s", scope, sellerID, resp.Status, resp.Body))
-
-	return false
-}
-
 func deleteDataCustomFromURL(url string, seller int) bool {
 	urlFull := url + fmt.Sprintf("%d", seller)
 
@@ -364,7 +312,7 @@ func deleteDataCustomFromURL(url string, seller int) bool {
 		return false
 	}
 
-	for key, value := range headers {
+	for key, value := range apicalls.Headers {
 		req.Header.Add(key, value)
 	}
 
@@ -408,7 +356,7 @@ func getOriginalDataCustomFromURL(url string, seller int) *OriginalDataKVS {
 		return nil
 	}
 
-	for key, value := range headers {
+	for key, value := range apicalls.Headers {
 		req.Header.Add(key, value)
 	}
 
