@@ -1,11 +1,9 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
-	"io"
-	"net/http"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
 	"strconv"
 )
 
@@ -36,9 +34,9 @@ type DataResponse struct {
 	SiteID          string          `json:"site_id,omitempty"`
 	SellerID        int             `json:"seller_id,omitempty"`
 	DataAnalysis    *DataAnalysis   `json:"data_analysis,omitempty"`
-	ProdData        *SellerAnalysis `json:"prod_data,omitempty"`
-	ClonData        *SellerAnalysis `json:"clon_data,omitempty"`
-	StagingData     *SellerAnalysis `json:"staging_data,omitempty"`
+	ProdData        *dtos.Collector `json:"prod_data,omitempty"`
+	ClonData        *dtos.Collector `json:"clon_data,omitempty"`
+	StagingData     *dtos.Collector `json:"staging_data,omitempty"`
 	OperationDetail string          `json:"operation_detail,omitempty"`
 }
 
@@ -51,9 +49,15 @@ type DataAnalysis struct {
 }
 
 type PaymentMethodsNode struct {
-	Prod    int `json:"prod,omitempty"`
-	Clon    int `json:"clon,omitempty"`
-	Staging int `json:"stg,omitempty"`
+	Prod               int                 `json:"prod,omitempty"`
+	Clon               int                 `json:"clon,omitempty"`
+	Staging            int                 `json:"stg,omitempty"`
+	PaymentMethodsDiff *PaymentMethodsDiff `json:"payment_methods_diff,omitempty"`
+}
+
+type PaymentMethodsDiff struct {
+	Message       string `json:"message,omitempty"`
+	IdsOnlyInProd []int  `json:"ids_only_in_prod,omitempty"`
 }
 
 type ExclusionsNode struct {
@@ -90,31 +94,6 @@ type SellerAnalysis struct {
 	OwnPromosByUser int
 }
 
-type RefreshMessage struct {
-	Msg struct {
-		ID struct {
-			SiteID   string `json:"site_id"`
-			SellerID string `json:"seller_id"`
-		} `json:"id"`
-	} `json:"msg"`
-}
-
-type DataCustom struct {
-	CollectorID          string        `json:"collector_id"`
-	CustomPaymentMethods []interface{} `json:"custom_payment_methods"`
-	Exclusions           []interface{} `json:"exclusions"`
-	Groups               interface{}   `json:"groups"`
-	AmountAllowed        []interface{} `json:"amount_allowed"`
-	OwnPromosByUser      interface{}   `json:"own_promos_by_user"`
-}
-
-type OriginalDataKVS struct {
-	IsCompressed bool   `json:"IsInStorage"`
-	IsInStorage  bool   `json:"IsInStorage"`
-	Data         string `json:"Data"`
-	LastUpdated  string `json:"LastUpdated"`
-}
-
 type LastUpdatedKVS struct {
 	SellerID           int    `json:"seller_id"`
 	ProdLastUpdated    string `json:"prod_last_updated"`
@@ -130,9 +109,9 @@ func CompareData(inputData InputData) []DataResponse {
 		sellerResponse := DataResponse{
 			SiteID:      inputData.SiteID,
 			SellerID:    seller,
-			ProdData:    getDataCustomFromURL(prodReaderURL, seller),
-			ClonData:    getDataCustomFromURL(clonReaderURL, seller),
-			StagingData: getDataCustomFromURL(stagingReaderURL, seller),
+			ProdData:    apicalls.GetDataCustomFromURL(prodReaderURL, seller),
+			ClonData:    apicalls.GetDataCustomFromURL(clonReaderURL, seller),
+			StagingData: apicalls.GetDataCustomFromURL(stagingReaderURL, seller),
 		}
 
 		results = append(results, sellerResponse)
@@ -149,62 +128,28 @@ func refreshProdData(inputData InputData) {
 	}
 }
 
-func getDataCustomFromURL(url string, seller int) *SellerAnalysis {
-	urlFull := fmt.Sprintf("%s/v2/payment-methods/internal/customizations?collector_id=%d", url, seller)
-
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", urlFull, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	for key, value := range apicalls.Headers {
-		req.Header.Add(key, value)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	var dataCustom DataCustom
-
-	err = json.Unmarshal(body, &dataCustom)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	sellerAnalysis, err := evaluateKVSData(dataCustom)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	return &sellerAnalysis
-}
-
-func evaluateKVSData(dataCustom DataCustom) (SellerAnalysis, error) {
-	if len(dataCustom.CustomPaymentMethods) == 0 && len(dataCustom.Exclusions) == 0 &&
+func existsCustomSeller(dataCustom *dtos.Collector) bool {
+	if dataCustom != nil && len(dataCustom.PaymentMethods) == 0 && len(dataCustom.Exclusions) == 0 &&
 		dataCustom.Groups == nil && len(dataCustom.AmountAllowed) == 0 && dataCustom.OwnPromosByUser == nil {
 
-		return SellerAnalysis{}, nil
+		return false
+	}
+
+	return true
+}
+
+/*
+func evaluateKVSData(dataCustom *dtos.Collector) *SellerAnalysis {
+	if dataCustom != nil && len(dataCustom.PaymentMethods) == 0 && len(dataCustom.Exclusions) == 0 &&
+		dataCustom.Groups == nil && len(dataCustom.AmountAllowed) == 0 && dataCustom.OwnPromosByUser == nil {
+
+		return nil
 	}
 
 	sellerAnalysis := SellerAnalysis{
 		SellerID:        dataCustom.CollectorID,
 		ExistsInKVS:     true,
-		PaymentMethods:  len(dataCustom.CustomPaymentMethods),
+		PaymentMethods:  len(dataCustom.PaymentMethods),
 		Exclusions:      len(dataCustom.Exclusions),
 		Groups:          0,
 		AmountAllowed:   len(dataCustom.AmountAllowed),
@@ -219,78 +164,89 @@ func evaluateKVSData(dataCustom DataCustom) (SellerAnalysis, error) {
 		sellerAnalysis.OwnPromosByUser = len(dataCustom.OwnPromosByUser.([]interface{}))
 	}
 
-	return sellerAnalysis, nil
-}
+	return &sellerAnalysis
+}*/
 
 func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 	dataResponseList := make([]DataResponse, 0)
 	for _, dataSeller := range dataComparison {
+		if dataSeller.ProdData == nil && dataSeller.ClonData == nil && dataSeller.StagingData == nil {
+			continue
+		}
+
+		existsInPrd := existsCustomSeller(dataSeller.ProdData)
+		existsInClon := existsCustomSeller(dataSeller.ClonData)
+		existsInStg := existsCustomSeller(dataSeller.StagingData)
+
 		dataResponse := DataResponse{
 			SiteID:   dataSeller.SiteID,
 			SellerID: dataSeller.SellerID,
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == false && dataSeller.ClonData.ExistsInKVS == false && dataSeller.StagingData.ExistsInKVS == false {
+		if existsInPrd == false && existsInClon == false && existsInStg == false {
 			dataResponse.OperationDetail = "No existe en ningún entorno"
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == false && dataSeller.ClonData.ExistsInKVS == false && dataSeller.StagingData.ExistsInKVS == true {
-			deletedStaging := deleteDataCustomFromURL(prodSyncStgReadV2URL, dataSeller.SellerID)
+		if existsInPrd == false && existsInClon == false && existsInStg == true {
+			deletedStaging := apicalls.DeleteDataCustomFromURL(prodSyncStgReadV2URL, dataSeller.SellerID)
 			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InStaging %s", dataSeller.SellerID, strconv.FormatBool(deletedStaging))
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == false && dataSeller.ClonData.ExistsInKVS == true && dataSeller.StagingData.ExistsInKVS == false {
-			deletedClon := deleteDataCustomFromURL(prodSyncClonReadV2URL, dataSeller.SellerID)
+		if existsInPrd == false && existsInClon == true && existsInStg == false {
+			deletedClon := apicalls.DeleteDataCustomFromURL(prodSyncClonReadV2URL, dataSeller.SellerID)
 			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InClon %s", dataSeller.SellerID, strconv.FormatBool(deletedClon))
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == false && dataSeller.ClonData.ExistsInKVS == true && dataSeller.StagingData.ExistsInKVS == true {
-			deletedClon := deleteDataCustomFromURL(prodSyncClonReadV2URL, dataSeller.SellerID)
-			deletedStaging := deleteDataCustomFromURL(prodSyncStgReadV2URL, dataSeller.SellerID)
+		if existsInPrd == false && existsInClon == true && existsInStg == true {
+			deletedClon := apicalls.DeleteDataCustomFromURL(prodSyncClonReadV2URL, dataSeller.SellerID)
+			deletedStaging := apicalls.DeleteDataCustomFromURL(prodSyncStgReadV2URL, dataSeller.SellerID)
 			dataResponse.OperationDetail = fmt.Sprintf("Eliminar %d en InClon %s y InStaging %s", dataSeller.SellerID, strconv.FormatBool(deletedClon), strconv.FormatBool(deletedStaging))
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == false && dataSeller.StagingData.ExistsInKVS == false {
+		if existsInPrd == true && existsInClon == false && existsInStg == false {
 			createdStaging := apicalls.CreateCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
 			createdProd := apicalls.CreateCustomData(createProdAndCloneURL, dataSeller.SiteID, dataSeller.SellerID, "prodAndClone")
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó Prod %s and InStaging %s %d", strconv.FormatBool(createdProd), strconv.FormatBool(createdStaging), dataSeller.SellerID)
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == false && dataSeller.StagingData.ExistsInKVS == true {
+		if existsInPrd == true && existsInClon == false && existsInStg == true {
 			dataResponse.OperationDetail = fmt.Sprintf("Crear en InClon %d", dataSeller.SellerID)
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == true && dataSeller.StagingData.ExistsInKVS == false {
+		if existsInPrd == true && existsInClon == true && existsInStg == false {
 			created := apicalls.CreateCustomData(createStagingURL, dataSeller.SiteID, dataSeller.SellerID, "staging")
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó InStaging %d %s", dataSeller.SellerID, strconv.FormatBool(created))
 		}
 
-		if dataSeller.ProdData.ExistsInKVS == true && dataSeller.ClonData.ExistsInKVS == true && dataSeller.StagingData.ExistsInKVS == true {
+		if existsInPrd == true && existsInClon == true && existsInStg == true {
+			lenProd, lenClon, lenStg, paymentMethodsDiff := validatePaymentMethodsNode(dataSeller)
+
 			dataResponse.DataAnalysis = &DataAnalysis{
 				PaymentMethods: PaymentMethodsNode{
-					Prod:    dataSeller.ProdData.PaymentMethods,
-					Clon:    dataSeller.ClonData.PaymentMethods,
-					Staging: dataSeller.StagingData.PaymentMethods,
+					Prod:               lenProd,
+					Clon:               lenClon,
+					Staging:            lenStg,
+					PaymentMethodsDiff: paymentMethodsDiff,
 				},
 				Exclusions: ExclusionsNode{
-					Prod:    dataSeller.ProdData.Exclusions,
-					Clon:    dataSeller.ClonData.Exclusions,
-					Staging: dataSeller.StagingData.Exclusions,
+					Prod:    len(dataSeller.ProdData.Exclusions),
+					Clon:    len(dataSeller.ClonData.Exclusions),
+					Staging: len(dataSeller.StagingData.Exclusions),
 				},
 				Groups: GroupsNode{
-					Prod:    dataSeller.ProdData.Groups,
-					Clon:    dataSeller.ClonData.Groups,
-					Staging: dataSeller.StagingData.Groups,
+					Prod:    getLengthOfNode(dataSeller.ProdData.Groups),
+					Clon:    getLengthOfNode(dataSeller.ClonData.Groups),
+					Staging: getLengthOfNode(dataSeller.StagingData.Groups),
 				},
 				AmountAllowed: AmountAllowedNode{
-					Prod:    dataSeller.ProdData.AmountAllowed,
-					Clon:    dataSeller.ClonData.AmountAllowed,
-					Staging: dataSeller.StagingData.AmountAllowed,
+					Prod:    len(dataSeller.ProdData.AmountAllowed),
+					Clon:    len(dataSeller.ClonData.AmountAllowed),
+					Staging: len(dataSeller.StagingData.AmountAllowed),
 				},
 				OwnPromosByUser: OwnPromosByUserNode{
-					Prod:    dataSeller.ProdData.OwnPromosByUser,
-					Clon:    dataSeller.ClonData.OwnPromosByUser,
-					Staging: dataSeller.StagingData.OwnPromosByUser,
+					Prod:    getLengthOfNode(dataSeller.ProdData.OwnPromosByUser),
+					Clon:    getLengthOfNode(dataSeller.ClonData.OwnPromosByUser),
+					Staging: getLengthOfNode(dataSeller.StagingData.OwnPromosByUser),
 				},
 			}
 		}
@@ -301,33 +257,12 @@ func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 	return dataResponseList
 }
 
-func deleteDataCustomFromURL(url string, seller int) bool {
-	urlFull := url + fmt.Sprintf("%d", seller)
-
-	client := &http.Client{}
-
-	req, err := http.NewRequest("DELETE", urlFull, nil)
-	if err != nil {
-		fmt.Println(err)
-		return false
+func getLengthOfNode(node interface{}) int {
+	if node == nil {
+		return 0
 	}
 
-	for key, value := range apicalls.Headers {
-		req.Header.Add(key, value)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 204 {
-		return true
-	}
-
-	return false
+	return len(node.([]interface{}))
 }
 
 func ValidateLastUpdateIntoKVS(inputSellers InputSellers) []LastUpdatedKVS {
@@ -335,9 +270,9 @@ func ValidateLastUpdateIntoKVS(inputSellers InputSellers) []LastUpdatedKVS {
 	for _, seller := range inputSellers.SellerIDs {
 		sellerData := LastUpdatedKVS{
 			SellerID:           seller,
-			ProdLastUpdated:    getOriginalDataCustomFromURL(prodSyncReadV2URL, seller).LastUpdated,
-			ClonLastUpdated:    getOriginalDataCustomFromURL(prodSyncClonReadV2URL, seller).LastUpdated,
-			StagingLastUpdated: getOriginalDataCustomFromURL(prodSyncStgReadV2URL, seller).LastUpdated,
+			ProdLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncReadV2URL, seller).LastUpdated,
+			ClonLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncClonReadV2URL, seller).LastUpdated,
+			StagingLastUpdated: apicalls.GetOriginalDataCustomFromURL(prodSyncStgReadV2URL, seller).LastUpdated,
 		}
 		lastUpdatedKVS = append(lastUpdatedKVS, sellerData)
 	}
@@ -345,41 +280,34 @@ func ValidateLastUpdateIntoKVS(inputSellers InputSellers) []LastUpdatedKVS {
 	return lastUpdatedKVS
 }
 
-func getOriginalDataCustomFromURL(url string, seller int) *OriginalDataKVS {
-	urlFull := fmt.Sprintf("%s%d", url, seller)
+func validatePaymentMethodsNode(dataSeller DataResponse) (int, int, int, *PaymentMethodsDiff) {
+	lenProd := len(dataSeller.ProdData.PaymentMethods)
+	lenClon := len(dataSeller.ClonData.PaymentMethods)
+	lenStg := len(dataSeller.StagingData.PaymentMethods)
 
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", urlFull, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil
+	if lenClon != lenStg {
+		return lenProd, lenClon, lenStg, &PaymentMethodsDiff{
+			IdsOnlyInProd: findMissingPaymentMethods(dataSeller.ProdData.PaymentMethods, dataSeller.StagingData.PaymentMethods),
+		}
 	}
 
-	for key, value := range apicalls.Headers {
-		req.Header.Add(key, value)
+	return lenProd, lenClon, lenStg, nil
+}
+
+func findMissingPaymentMethods(dataProd, staging []dtos.PaymentMethod) []int {
+	missingPaymentMethods := make([]int, 0)
+	stagingMap := make(map[string]bool)
+	for _, paymentMethod := range staging {
+		stagingMap[paymentMethod.Misc.PmIssuerRelation.ID] = true
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
+	for _, paymentMethod := range dataProd {
+		// Verificar si el medio de pago no existe en staging
+		if !stagingMap[paymentMethod.Misc.PmIssuerRelation.ID] {
+			pmID, _ := strconv.Atoi(paymentMethod.Misc.PmIssuerRelation.ID)
+			missingPaymentMethods = append(missingPaymentMethods, pmID)
+		}
 	}
 
-	var originalDataKVS OriginalDataKVS
-
-	err = json.Unmarshal(body, &originalDataKVS)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	return &originalDataKVS
+	return missingPaymentMethods
 }
