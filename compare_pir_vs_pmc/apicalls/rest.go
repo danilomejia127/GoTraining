@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
 )
+
+const reportUsersCustom = "https://internal-api.mercadopago.com/v1/payment_methods/dump_users_custom"
 
 var (
 	Headers = map[string]string{}
@@ -144,7 +147,7 @@ func GetOriginalDataCustomFromURL(url string, seller int) *dtos.OriginalDataKVS 
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", urlFull, nil)
+	req, err := http.NewRequest(http.MethodGet, urlFull, nil)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -176,4 +179,44 @@ func GetOriginalDataCustomFromURL(url string, seller int) *dtos.OriginalDataKVS 
 	}
 
 	return &originalDataKVS
+}
+
+func GetSellerCustomFromReadV2() []int {
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, reportUsersCustom, nil)
+	if err != nil {
+		fmt.Println(err)
+
+		return nil
+	}
+
+	for key, value := range Headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+
+		return nil
+	}
+
+	var sellers []int
+
+	err = json.Unmarshal(body, &sellers)
+	if err != nil {
+		fmt.Println(err)
+
+		return nil
+	}
+
+	return sellers
 }

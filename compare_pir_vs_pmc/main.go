@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"io"
 	"net/http"
+
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/services"
 )
@@ -13,6 +14,7 @@ import (
 func main() {
 	http.HandleFunc("/pir_vs_pmc", handlePostRequest)
 	http.HandleFunc("/validate_last_update", validateLastKVSUpdate)
+	http.HandleFunc("/sellers_and_site_report", sellersAndSiteReport)
 
 	// Iniciar el servidor en el puerto 8080
 	fmt.Println("Servidor escuchando en http://localhost:8080")
@@ -140,4 +142,14 @@ func validateToken(r *http.Request) error {
 	apicalls.SetToken(token)
 
 	return nil
+}
+
+func sellersAndSiteReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Se esperaba un método GET", http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	services.GetSellerSite()
 }
