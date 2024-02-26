@@ -68,6 +68,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := w.Write(response); err != nil {
 		fmt.Println("Error al escribir la respuesta:", err)
+
 		return
 	}
 }
@@ -75,6 +76,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 func validateLastKVSUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
+
 		return
 	}
 
@@ -145,11 +147,26 @@ func validateToken(r *http.Request) error {
 }
 
 func sellersAndSiteReport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Se esperaba un método GET", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
 
 		return
 	}
 
-	services.GetSellerSite()
+	body, err := validateBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Decodificar el cuerpo del request JSON
+	var inputData services.SellerSiteReport
+
+	err = json.Unmarshal(body, &inputData)
+	if err != nil {
+		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
+		return
+	}
+
+	services.GetSellerSite(inputData)
 }

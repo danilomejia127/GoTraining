@@ -19,7 +19,7 @@ func NewCustomPMEventDAO(db *sqlx.DB) *CustomPMEventDAO {
 
 // GetEventsSinceDate obtiene eventos personalizados creados después de una fecha específica con paginación
 func (dao *CustomPMEventDAO) GetEventsSinceDate(date time.Time, offset, limit int) ([]entity.CustomPMEvent, error) {
-	query := "SELECT DISTINCT site_id, seller_id FROM custom_pm_event WHERE date_created > ? LIMIT ?, ?"
+	query := "SELECT DISTINCT site_id, seller_id FROM custom_pm_event WHERE site_id = 'MCO' and date_created > ? LIMIT ?, ?"
 
 	rows, err := dao.db.Query(query, date, offset, limit)
 	if err != nil {
