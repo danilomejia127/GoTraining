@@ -165,7 +165,7 @@ func saveSellers(sellers map[int]string, fileName string) {
 
 	// escribir los sellers en el archivo csv
 	for seller, _ := range sellers {
-		_, err = file.WriteString(strconv.Itoa(seller) + "\n")
+		_, err = file.WriteString(strconv.Itoa(seller) + ",\n")
 		if err != nil {
 			log.Panic("Error al escribir el seller en el archivo csv:", err)
 		}
