@@ -2,12 +2,12 @@ package services
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
-	"strconv"
 )
 
-// Scope para eliminación production-synchronizer-stg--payment-methods-read-v2.furyapps.io
 const (
 	prodReaderURL         = "https://production-reader-syncsvc_payment-methods-read-v2.furyapps.io"
 	clonReaderURL         = "https://production-reader-comp-clon-readv2.melioffice.com"
@@ -38,6 +38,11 @@ type DataResponse struct {
 	ClonData        *dtos.Collector `json:"clon_data,omitempty"`
 	StagingData     *dtos.Collector `json:"staging_data,omitempty"`
 	OperationDetail string          `json:"operation_detail,omitempty"`
+}
+
+type Response struct {
+	DataResponse    []DataResponse `json:"data,omitempty"`
+	SellersWithData []int          `json:"seller_ids"`
 }
 
 type DataAnalysis struct {
@@ -101,7 +106,7 @@ type LastUpdatedKVS struct {
 	StagingLastUpdated string `json:"stag_last_updated"`
 }
 
-func CompareData(inputData InputData) []DataResponse {
+func CompareData(inputData InputData) Response {
 	results := make([]DataResponse, 0)
 	refreshProdData(inputData)
 
@@ -117,13 +122,16 @@ func CompareData(inputData InputData) []DataResponse {
 		results = append(results, sellerResponse)
 	}
 
-	return results
+	return Response{
+		DataResponse: results,
+	}
 }
 
 func refreshProdData(inputData InputData) {
 	if inputData.RefreshProd {
 		for _, seller := range inputData.SellerIDs {
 			apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, seller, "prod")
+			apicalls.CreateCustomData(createStagingURL, inputData.SiteID, seller, "stag")
 		}
 	}
 }
@@ -138,38 +146,11 @@ func existsCustomSeller(dataCustom *dtos.Collector) bool {
 	return true
 }
 
-/*
-func evaluateKVSData(dataCustom *dtos.Collector) *SellerAnalysis {
-	if dataCustom != nil && len(dataCustom.PaymentMethods) == 0 && len(dataCustom.Exclusions) == 0 &&
-		dataCustom.Groups == nil && len(dataCustom.AmountAllowed) == 0 && dataCustom.OwnPromosByUser == nil {
-
-		return nil
-	}
-
-	sellerAnalysis := SellerAnalysis{
-		SellerID:        dataCustom.CollectorID,
-		ExistsInKVS:     true,
-		PaymentMethods:  len(dataCustom.PaymentMethods),
-		Exclusions:      len(dataCustom.Exclusions),
-		Groups:          0,
-		AmountAllowed:   len(dataCustom.AmountAllowed),
-		OwnPromosByUser: 0,
-	}
-
-	if dataCustom.Groups != nil {
-		sellerAnalysis.Groups = len(dataCustom.Groups.([]interface{}))
-	}
-
-	if dataCustom.OwnPromosByUser != nil {
-		sellerAnalysis.OwnPromosByUser = len(dataCustom.OwnPromosByUser.([]interface{}))
-	}
-
-	return &sellerAnalysis
-}*/
-
-func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
+func HomologateCustomData(dataComparison Response) Response {
 	dataResponseList := make([]DataResponse, 0)
-	for _, dataSeller := range dataComparison {
+	sellersWithData := make([]int, 0)
+
+	for _, dataSeller := range dataComparison.DataResponse {
 		if dataSeller.ProdData == nil && dataSeller.ClonData == nil && dataSeller.StagingData == nil {
 			continue
 		}
@@ -249,12 +230,17 @@ func HomologateCustomData(dataComparison []DataResponse) []DataResponse {
 					Staging: getLengthOfNode(dataSeller.StagingData.OwnPromosByUser),
 				},
 			}
+
+			sellersWithData = append(sellersWithData, dataSeller.SellerID)
 		}
 
 		dataResponseList = append(dataResponseList, dataResponse)
 	}
 
-	return dataResponseList
+	return Response{
+		DataResponse:    dataResponseList,
+		SellersWithData: sellersWithData,
+	}
 }
 
 func getLengthOfNode(node interface{}) int {
@@ -267,6 +253,7 @@ func getLengthOfNode(node interface{}) int {
 
 func ValidateLastUpdateIntoKVS(inputSellers InputSellers) []LastUpdatedKVS {
 	lastUpdatedKVS := make([]LastUpdatedKVS, 0)
+
 	for _, seller := range inputSellers.SellerIDs {
 		sellerData := LastUpdatedKVS{
 			SellerID:           seller,
@@ -296,6 +283,7 @@ func validatePaymentMethodsNode(dataSeller DataResponse) (int, int, int, *Paymen
 
 func findMissingPaymentMethods(dataProd, staging []dtos.PaymentMethod) []int {
 	missingPaymentMethods := make([]int, 0)
+
 	stagingMap := make(map[string]bool)
 	for _, paymentMethod := range staging {
 		stagingMap[paymentMethod.Misc.PmIssuerRelation.ID] = true

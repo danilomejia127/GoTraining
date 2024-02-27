@@ -4,3 +4,4 @@
 .vscode/settings.json
 /gzip_to_string/*.json
 /gzip_to_string/*.json.gz
+/compare_pir_vs_pmc/data/*

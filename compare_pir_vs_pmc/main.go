@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"io"
+	"log"
 	"net/http"
+
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/services"
 )
@@ -13,30 +15,35 @@ import (
 func main() {
 	http.HandleFunc("/pir_vs_pmc", handlePostRequest)
 	http.HandleFunc("/validate_last_update", validateLastKVSUpdate)
+	http.HandleFunc("/sellers_and_site_report", sellersAndSiteReport)
 
 	// Iniciar el servidor en el puerto 8080
-	fmt.Println("Servidor escuchando en http://localhost:8080")
+	log.Println("Servidor escuchando en http://localhost:8080")
+
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		fmt.Println("Error al iniciar el servidor:", err)
+		log.Println("Error al iniciar el servidor:", err)
 	}
 }
 
 func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
+
 		return
 	}
 
 	err := validateToken(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
+
 		return
 	}
 
 	body, err := validateBody(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+
 		return
 	}
 
@@ -46,6 +53,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
+
 		return
 	}
 
@@ -57,6 +65,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	response, err := json.Marshal(dataResponse)
 	if err != nil {
 		http.Error(w, "Error al codificar la respuesta JSON", http.StatusInternalServerError)
+
 		return
 	}
 
@@ -66,6 +75,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := w.Write(response); err != nil {
 		fmt.Println("Error al escribir la respuesta:", err)
+
 		return
 	}
 }
@@ -73,6 +83,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 func validateLastKVSUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
+
 		return
 	}
 
@@ -140,4 +151,31 @@ func validateToken(r *http.Request) error {
 	apicalls.SetToken(token)
 
 	return nil
+}
+
+func sellersAndSiteReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	body, err := validateBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+
+		return
+	}
+
+	// Decodificar el cuerpo del request JSON
+	var inputData services.SellerSiteReport
+
+	err = json.Unmarshal(body, &inputData)
+	if err != nil {
+		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
+
+		return
+	}
+
+	services.GetSellerSite(inputData)
 }
