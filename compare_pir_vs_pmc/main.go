@@ -16,6 +16,7 @@ func main() {
 	http.HandleFunc("/pir_vs_pmc", handlePostRequest)
 	http.HandleFunc("/validate_last_update", validateLastKVSUpdate)
 	http.HandleFunc("/sellers_and_site_report", sellersAndSiteReport)
+	http.HandleFunc("/update_special_owners_kvs", updateSpecialOwnersKVS)
 
 	// Iniciar el servidor en el puerto 8080
 	log.Println("Servidor escuchando en http://localhost:8080")
@@ -178,4 +179,39 @@ func sellersAndSiteReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	services.GetSellerSite(inputData)
+}
+
+func updateSpecialOwnersKVS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	body, err := validateBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+
+		return
+	}
+
+	err = validateToken(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Decodificar el cuerpo del request JSON
+	var inputData []string
+
+	err = json.Unmarshal(body, &inputData)
+	if err != nil {
+		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
+
+		return
+	}
+
+	services.UpdateSpecialOwnersKVS(inputData)
+
+	w.WriteHeader(http.StatusOK)
 }

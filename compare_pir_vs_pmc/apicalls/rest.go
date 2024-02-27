@@ -5,13 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
 )
 
-const reportUsersCustom = "https://internal-api.mercadopago.com/v1/payment_methods/dump_users_custom"
+const (
+	reportUsersCustom            = "https://internal-api.mercadopago.com/v1/payment_methods/dump_users_custom"
+	productionSyncReaderV2       = "https://production-synchronizer-v2--payment-methods-read-v2.furyapps.io"
+	specialOwnersPath            = "/pm-core/repository/get-special-owners/"
+	getSpecialOwnersBySiteURL    = productionSyncReaderV2 + specialOwnersPath
+	ProductionSynchronizerStgURL = "https://production-synchronizer-stg--payment-methods-read-v2.furyapps.io/pm-core/repository/standard"
+)
 
 var (
 	Headers = map[string]string{}
@@ -32,6 +39,18 @@ type RefreshMessage struct {
 	} `json:"msg"`
 }
 
+type SpecialOwnersMsg struct {
+	Msg struct {
+		Key   string `json:"Key"`
+		Value []struct {
+			ID     int      `json:"id"`
+			Values []string `json:"values"`
+		} `json:"Value"`
+		MessageID   string `json:"message_id"`
+		PublishTime int64  `json:"publish_time"`
+	} `json:"msg"`
+}
+
 func CreateCustomData(refreshURL string, siteID string, sellerID int, scope string) bool {
 	msg := RefreshMessage{}
 	msg.Msg.ID.SiteID = siteID
@@ -39,7 +58,8 @@ func CreateCustomData(refreshURL string, siteID string, sellerID int, scope stri
 
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return false
 	}
 
@@ -47,7 +67,8 @@ func CreateCustomData(refreshURL string, siteID string, sellerID int, scope stri
 
 	req, err := http.NewRequest(http.MethodPost, refreshURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return false
 	}
 
@@ -59,7 +80,8 @@ func CreateCustomData(refreshURL string, siteID string, sellerID int, scope stri
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return false
 	}
 	defer resp.Body.Close()
@@ -69,7 +91,7 @@ func CreateCustomData(refreshURL string, siteID string, sellerID int, scope stri
 		return true
 	}
 
-	fmt.Println(fmt.Sprintf("Error al crear en scope: %s status: %d %s error: %s", scope, sellerID, resp.Status, resp.Body))
+	log.Println(fmt.Sprintf("Error al crear en scope: %s status: %d %s error: %s", scope, sellerID, resp.Status, resp.Body))
 
 	return false
 }
@@ -81,7 +103,8 @@ func GetDataCustomFromURL(url string, seller int) *dtos.Collector {
 
 	req, err := http.NewRequest(http.MethodGet, urlFull, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -91,14 +114,16 @@ func GetDataCustomFromURL(url string, seller int) *dtos.Collector {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -106,7 +131,8 @@ func GetDataCustomFromURL(url string, seller int) *dtos.Collector {
 
 	err = json.Unmarshal(body, &dataCustom)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -120,7 +146,8 @@ func DeleteDataCustomFromURL(url string, seller int) bool {
 
 	req, err := http.NewRequest(http.MethodDelete, urlFull, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return false
 	}
 
@@ -130,7 +157,8 @@ func DeleteDataCustomFromURL(url string, seller int) bool {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return false
 	}
 	defer resp.Body.Close()
@@ -149,7 +177,8 @@ func GetOriginalDataCustomFromURL(url string, seller int) *dtos.OriginalDataKVS 
 
 	req, err := http.NewRequest(http.MethodGet, urlFull, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -159,14 +188,16 @@ func GetOriginalDataCustomFromURL(url string, seller int) *dtos.OriginalDataKVS 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -174,7 +205,8 @@ func GetOriginalDataCustomFromURL(url string, seller int) *dtos.OriginalDataKVS 
 
 	err = json.Unmarshal(body, &originalDataKVS)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 
@@ -186,7 +218,7 @@ func GetSellerCustomFromReadV2() []int {
 
 	req, err := http.NewRequest(http.MethodGet, reportUsersCustom, nil)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 
 		return nil
 	}
@@ -197,14 +229,15 @@ func GetSellerCustomFromReadV2() []int {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+
 		return nil
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 
 		return nil
 	}
@@ -213,10 +246,94 @@ func GetSellerCustomFromReadV2() []int {
 
 	err = json.Unmarshal(body, &sellers)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 
 		return nil
 	}
 
 	return sellers
+}
+
+func GetOriginalDataSpecialOwnersBySite(key string) []string {
+	urlFull := fmt.Sprintf("%s%s", getSpecialOwnersBySiteURL, key)
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, urlFull, nil)
+	if err != nil {
+		log.Println(err)
+
+		return nil
+	}
+
+	for key, value := range Headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+
+		return nil
+	}
+
+	var specialOwners []string
+
+	err = json.Unmarshal(body, &specialOwners)
+	if err != nil {
+		log.Println(err)
+
+		return nil
+	}
+
+	return specialOwners
+}
+
+func UpdateSpecialOwnersIntoKVS(url string, msg SpecialOwnersMsg) bool {
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Println(err)
+
+		return false
+	}
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Println(err)
+
+		return false
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	for key, value := range Headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+
+		return false
+	}
+	defer resp.Body.Close()
+
+	// validar si el status code es 200
+	if resp.StatusCode == 201 {
+		return true
+	}
+
+	log.Println(fmt.Sprintf("Error al guardar special owner %s: Status %s error: %s", "extraerKeyDeMSG", resp.Status, resp.Body))
+
+	return false
 }
