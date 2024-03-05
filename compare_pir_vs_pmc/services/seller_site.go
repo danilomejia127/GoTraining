@@ -10,8 +10,6 @@ import (
 
 	"log"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
 
 type SellerSiteReport struct {
@@ -24,11 +22,6 @@ type SellerSiteReport struct {
 func GetSellerSite(sellerSiteReport SellerSiteReport) {
 	start := time.Now()
 	defer func() { logTimeExecution(start, time.Now(), "GetSellerSite") }()
-
-	// Carga las variables de entorno desde el archivo .env
-	if err := godotenv.Load("compare_pir_vs_pmc/config/local.properties"); err != nil {
-		log.Panic("Error al cargar el archivo .env:", err)
-	}
 
 	dbConn, err := db.GetConnection()
 	if err != nil {
