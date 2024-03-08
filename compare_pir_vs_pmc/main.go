@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	http.Handle("/pir_vs_pmc", validationMiddleware(http.HandlerFunc(handlePostRequest)))
+	http.Handle("/pir_vs_pmc", validationMiddleware(http.HandlerFunc(handlePirVsPmc)))
 	http.Handle("/validate_last_update", validationMiddleware(http.HandlerFunc(validateLastKVSUpdate)))
 	http.Handle("/sellers_and_site_report", validationMiddleware(http.HandlerFunc(sellersAndSiteReport)))
 	http.Handle("/update_special_owners_kvs", validationMiddleware(http.HandlerFunc(updateSpecialOwnersKVS)))
@@ -28,7 +28,7 @@ func main() {
 	}
 }
 
-func handlePostRequest(w http.ResponseWriter, r *http.Request) {
+func handlePirVsPmc(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Se esperaba un método POST", http.StatusMethodNotAllowed)
 

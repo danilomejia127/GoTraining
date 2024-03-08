@@ -136,9 +136,11 @@ func refreshProdData(inputData InputData) {
 
 		for _, seller := range inputData.SellerIDs {
 			wg.Add(1)
+
 			go func(sellerID int) { // Pasar seller como parámetro
 				defer wg.Done()
 				semaphore <- struct{}{}
+
 				log.Println("Refreshing seller " + strconv.Itoa(sellerID))
 				apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, sellerID, "prod")
 				apicalls.CreateCustomData(createStagingURL, inputData.SiteID, sellerID, "stag")
@@ -148,6 +150,8 @@ func refreshProdData(inputData InputData) {
 
 		wg.Wait()
 	}
+
+	log.Println(fmt.Sprintf("------Refreshing %d sellers finished", len(inputData.SellerIDs)))
 }
 
 func existsCustomSeller(dataCustom *dtos.Collector) bool {
@@ -161,6 +165,8 @@ func existsCustomSeller(dataCustom *dtos.Collector) bool {
 }
 
 func HomologateCustomData(dataComparison Response) Response {
+	log.Println("HomologateCustomData data begin....")
+
 	dataResponseList := make([]DataResponse, 0)
 	sellersWithData := make([]int, 0)
 
