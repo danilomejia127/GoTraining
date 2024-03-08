@@ -6,6 +6,12 @@ import (
 	_ "github.com/newrelic/go-agent/v3/integrations/nrmysql"
 	"log"
 	"os"
+	"sync"
+)
+
+var (
+	dbConn *sqlx.DB
+	once   sync.Once
 )
 
 // GetConnection establece una conexión a la base de datos MySQL y la devuelve.
@@ -36,4 +42,17 @@ func GetConnection() (*sqlx.DB, error) {
 	}
 
 	return db, nil
+}
+
+func InitDB() (*sqlx.DB, error) {
+	var err error
+
+	once.Do(func() {
+		dbConn, err = GetConnection()
+	})
+	if err != nil {
+		log.Fatal("Error al obtener la conexión a la base de datos:", err)
+	}
+
+	return dbConn, err
 }
