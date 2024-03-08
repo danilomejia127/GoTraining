@@ -2,7 +2,9 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"strconv"
+	"sync"
 
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
@@ -129,10 +131,22 @@ func CompareData(inputData InputData) Response {
 
 func refreshProdData(inputData InputData) {
 	if inputData.RefreshProd {
+		var wg sync.WaitGroup
+		semaphore := make(chan struct{}, 10)
+
 		for _, seller := range inputData.SellerIDs {
-			apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, seller, "prod")
-			apicalls.CreateCustomData(createStagingURL, inputData.SiteID, seller, "stag")
+			wg.Add(1)
+			go func(sellerID int) { // Pasar seller como parámetro
+				defer wg.Done()
+				semaphore <- struct{}{}
+				log.Println("Refreshing seller " + strconv.Itoa(sellerID))
+				apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, sellerID, "prod")
+				apicalls.CreateCustomData(createStagingURL, inputData.SiteID, sellerID, "stag")
+				<-semaphore
+			}(seller) // Pasar el valor actual de seller como argumento
 		}
+
+		wg.Wait()
 	}
 }
 

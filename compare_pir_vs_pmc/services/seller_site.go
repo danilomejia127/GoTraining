@@ -4,14 +4,11 @@ import (
 	"encoding/binary"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dao"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/db"
 	"os"
 	"time"
 
 	"log"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
 
 type SellerSiteReport struct {
@@ -25,19 +22,8 @@ func GetSellerSite(sellerSiteReport SellerSiteReport) {
 	start := time.Now()
 	defer func() { logTimeExecution(start, time.Now(), "GetSellerSite") }()
 
-	// Carga las variables de entorno desde el archivo .env
-	if err := godotenv.Load("compare_pir_vs_pmc/config/local.properties"); err != nil {
-		log.Panic("Error al cargar el archivo .env:", err)
-	}
-
-	dbConn, err := db.GetConnection()
-	if err != nil {
-		log.Panic("Error al obtener la conexión a la base de datos:", err)
-	}
-	defer dbConn.Close()
-
 	// Crea un nuevo DAO para la tabla custom_pm_event
-	customPMEventDAO := dao.NewCustomPMEventDAO(dbConn)
+	customPMEventDAO := dao.NewCustomPMEventDAO()
 
 	// Define el tamaño de página y el desplazamiento inicial
 	pageSize := 10000 // Tamaño de página
@@ -75,7 +61,9 @@ func GetSellerSite(sellerSiteReport SellerSiteReport) {
 
 		eventsProc += len(eventsParc)
 
-		log.Println("Total parcial de eventos: " + strconv.Itoa(eventsProc))
+		log.Println("Total parcial de eventos: " + strconv.Itoa(eventsProc) + "Tiempo de ejecución: " + time.Since(start).String())
+		// crear log que muestre el tiempo en horas, minutos y segundos que lleva la ejecución
+		log.Println("Tiempo de ejecución: " + time.Since(start).String())
 
 		// Incrementa el desplazamiento para la siguiente página
 		offset += pageSize
@@ -131,7 +119,7 @@ func GetSellerSite(sellerSiteReport SellerSiteReport) {
 	saveSellers(sellersMLU, "sellersMLU.csv")
 	saveSellers(sellersMPE, "sellersMPE.csv")
 	saveSellers(sellersMLV, "sellersMLV.csv")
-	saveSellers(sellersNoSite, "sellersNoSite.csv")
+	saveSellers(sellersNoSite, "sellersMLA7Marzo.csv")
 
 	log.Println("Total sellers MLA: " + strconv.Itoa(len(sellersMLA)))
 	log.Println("Total sellers MLB: " + strconv.Itoa(len(sellersMLB)))
@@ -142,6 +130,7 @@ func GetSellerSite(sellerSiteReport SellerSiteReport) {
 	log.Println("Total sellers MLU: " + strconv.Itoa(len(sellersMLU)))
 	log.Println("Total sellers MPE: " + strconv.Itoa(len(sellersMPE)))
 	log.Println("Total sellers MLV: " + strconv.Itoa(len(sellersMLV)))
+	log.Println("Total sellers No Site: " + strconv.Itoa(len(sellersNoSite)))
 
 	log.Println("Total sellers: " + strconv.Itoa(len(sellersMLA)+len(sellersMLB)+len(sellersMCO)+len(sellersMLM)+len(sellersMLC)+len(sellersMEC)+len(sellersMLU)+len(sellersMPE)+len(sellersMLV)))
 }

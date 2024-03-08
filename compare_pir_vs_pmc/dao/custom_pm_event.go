@@ -2,6 +2,7 @@ package dao
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/db"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/entity"
 	"log"
 	"time"
@@ -13,13 +14,18 @@ type CustomPMEventDAO struct {
 }
 
 // NewCustomPMEventDAO crea un nuevo DAO para la tabla custom_pm_event
-func NewCustomPMEventDAO(db *sqlx.DB) *CustomPMEventDAO {
-	return &CustomPMEventDAO{db}
+func NewCustomPMEventDAO() *CustomPMEventDAO {
+	dbConn, err := db.InitDB()
+	if err != nil {
+		log.Fatal("Error al inicializar la base de datos:", err)
+	}
+
+	return &CustomPMEventDAO{db: dbConn}
 }
 
 // GetEventsSinceDate obtiene eventos personalizados creados después de una fecha específica con paginación
 func (dao *CustomPMEventDAO) GetEventsSinceDate(date time.Time, offset, limit int) ([]entity.CustomPMEvent, error) {
-	query := "SELECT DISTINCT site_id, seller_id FROM custom_pm_event WHERE site_id = 'MCO' and date_created > ? LIMIT ?, ?"
+	query := "SELECT DISTINCT site_id, seller_id FROM custom_pm_event WHERE site_id <> 'MLA' AND date_created > ? LIMIT ?, ?"
 
 	rows, err := dao.db.Query(query, date, offset, limit)
 	if err != nil {

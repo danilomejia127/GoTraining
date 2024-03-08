@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,17 +14,17 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/pir_vs_pmc", handlePostRequest)
-	http.HandleFunc("/validate_last_update", validateLastKVSUpdate)
-	http.HandleFunc("/sellers_and_site_report", sellersAndSiteReport)
-	http.HandleFunc("/update_special_owners_kvs", updateSpecialOwnersKVS)
+	http.Handle("/pir_vs_pmc", validationMiddleware(http.HandlerFunc(handlePostRequest)))
+	http.Handle("/validate_last_update", validationMiddleware(http.HandlerFunc(validateLastKVSUpdate)))
+	http.Handle("/sellers_and_site_report", validationMiddleware(http.HandlerFunc(sellersAndSiteReport)))
+	http.Handle("/update_special_owners_kvs", validationMiddleware(http.HandlerFunc(updateSpecialOwnersKVS)))
 
 	// Iniciar el servidor en el puerto 8080
 	log.Println("Servidor escuchando en http://localhost:8080")
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		log.Println("Error al iniciar el servidor:", err)
+		log.Fatal("Error al iniciar el servidor:", err)
 	}
 }
 
@@ -34,24 +35,11 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := validateToken(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-
-		return
-	}
-
-	body, err := validateBody(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-
-		return
-	}
-
+	body := r.Context().Value("body").([]byte)
 	// Decodificar el cuerpo del request JSON
 	var inputData services.InputData
 
-	err = json.Unmarshal(body, &inputData)
+	err := json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
 
@@ -75,7 +63,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 
 	if _, err := w.Write(response); err != nil {
-		fmt.Println("Error al escribir la respuesta:", err)
+		log.Fatal("Error al escribir la respuesta:", err)
 
 		return
 	}
@@ -88,24 +76,15 @@ func validateLastKVSUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := validateToken(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	body, err := validateBody(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	body := r.Context().Value("body").([]byte)
 
 	// Decodificar el cuerpo del request JSON
 	var inputData services.InputSellers
 
-	err = json.Unmarshal(body, &inputData)
+	err := json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
+
 		return
 	}
 
@@ -115,6 +94,7 @@ func validateLastKVSUpdate(w http.ResponseWriter, r *http.Request) {
 	response, err := json.Marshal(dataResponse)
 	if err != nil {
 		http.Error(w, "Error al codificar la respuesta JSON", http.StatusInternalServerError)
+
 		return
 	}
 
@@ -123,7 +103,8 @@ func validateLastKVSUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 
 	if _, err := w.Write(response); err != nil {
-		fmt.Println("Error al escribir la respuesta:", err)
+		log.Fatal("Error al escribir la respuesta:", err)
+
 		return
 	}
 
@@ -161,17 +142,12 @@ func sellersAndSiteReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := validateBody(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-
-		return
-	}
+	body := r.Context().Value("body").([]byte)
 
 	// Decodificar el cuerpo del request JSON
 	var inputData services.SellerSiteReport
 
-	err = json.Unmarshal(body, &inputData)
+	err := json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
 
@@ -188,23 +164,12 @@ func updateSpecialOwnersKVS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := validateBody(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-
-		return
-	}
-
-	err = validateToken(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+	body := r.Context().Value("body").([]byte)
 
 	// Decodificar el cuerpo del request JSON
 	var inputData []string
 
-	err = json.Unmarshal(body, &inputData)
+	err := json.Unmarshal(body, &inputData)
 	if err != nil {
 		http.Error(w, "Error al decodificar el JSON", http.StatusBadRequest)
 
@@ -214,4 +179,26 @@ func updateSpecialOwnersKVS(w http.ResponseWriter, r *http.Request) {
 	services.UpdateSpecialOwnersKVS(inputData)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func validationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := validateBody(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		err = validateToken(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+
+			return
+		}
+
+		// Store the body in the request context
+		ctx := context.WithValue(r.Context(), "body", body)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
