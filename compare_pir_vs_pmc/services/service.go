@@ -23,9 +23,10 @@ const (
 )
 
 type InputData struct {
-	RefreshProd bool   `json:"refresh_prod"`
-	SiteID      string `json:"site_id"`
-	SellerIDs   []int  `json:"seller_ids"`
+	RefreshProd    bool   `json:"refresh_prod"`
+	CompareEnvData bool   `json:"compare_env_data"`
+	SiteID         string `json:"site_id"`
+	SellerIDs      []int  `json:"seller_ids"`
 }
 
 type InputSellers struct {
@@ -111,24 +112,28 @@ type LastUpdatedKVS struct {
 func CompareData(inputData InputData) Response {
 	results := make([]DataResponse, 0)
 
-	refreshProdData(inputData)
+	if inputData.RefreshProd {
+		refreshProdData(inputData)
+	}
 
-	start := time.Now()
-	log.Println("GetDataCustomFromURL begin....")
+	if inputData.CompareEnvData {
+		start := time.Now()
+		log.Println("GetDataCustomFromURL begin....")
 
-	for i, seller := range inputData.SellerIDs {
-		sellerResponse := DataResponse{
-			SiteID:      inputData.SiteID,
-			SellerID:    seller,
-			ProdData:    apicalls.GetDataCustomFromURL(prodReaderURL, seller),
-			ClonData:    apicalls.GetDataCustomFromURL(clonReaderURL, seller),
-			StagingData: apicalls.GetDataCustomFromURL(stagingReaderURL, seller),
-		}
+		for i, seller := range inputData.SellerIDs {
+			sellerResponse := DataResponse{
+				SiteID:      inputData.SiteID,
+				SellerID:    seller,
+				ProdData:    apicalls.GetDataCustomFromURL(prodReaderURL, seller),
+				ClonData:    apicalls.GetDataCustomFromURL(clonReaderURL, seller),
+				StagingData: apicalls.GetDataCustomFromURL(stagingReaderURL, seller),
+			}
 
-		results = append(results, sellerResponse)
+			results = append(results, sellerResponse)
 
-		if i%20 == 0 {
-			log.Println(fmt.Sprintf("GetDataCustomFromURL %d of %d time running: %s", i, len(inputData.SellerIDs), time.Since(start).String()))
+			if i%20 == 0 {
+				log.Println(fmt.Sprintf("GetDataCustomFromURL %d of %d time running: %s", i, len(inputData.SellerIDs), time.Since(start).String()))
+			}
 		}
 	}
 
