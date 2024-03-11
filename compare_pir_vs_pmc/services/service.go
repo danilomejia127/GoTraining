@@ -290,15 +290,34 @@ func getLengthOfNode(node interface{}) int {
 func ValidateLastUpdateIntoKVS(inputSellers InputSellers) []LastUpdatedKVS {
 	lastUpdatedKVS := make([]LastUpdatedKVS, 0)
 
-	for _, seller := range inputSellers.SellerIDs {
-		sellerData := LastUpdatedKVS{
-			SellerID:           seller,
-			ProdLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncReadV2URL, seller).LastUpdated,
-			ClonLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncClonReadV2URL, seller).LastUpdated,
-			StagingLastUpdated: apicalls.GetOriginalDataCustomFromURL(prodSyncStgReadV2URL, seller).LastUpdated,
-		}
-		lastUpdatedKVS = append(lastUpdatedKVS, sellerData)
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 10)
+	size := len(inputSellers.SellerIDs)
+
+	for i, seller := range inputSellers.SellerIDs {
+		wg.Add(1)
+
+		go func(seller int, i int, size int) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+
+			if i%20 == 0 {
+				log.Println(fmt.Sprintf("ValidateLastUpdateIntoKVS %d of %d sellers", i, size))
+			}
+
+			sellerData := LastUpdatedKVS{
+				SellerID:           seller,
+				ProdLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncReadV2URL, seller).LastUpdated,
+				ClonLastUpdated:    apicalls.GetOriginalDataCustomFromURL(prodSyncClonReadV2URL, seller).LastUpdated,
+				StagingLastUpdated: apicalls.GetOriginalDataCustomFromURL(prodSyncStgReadV2URL, seller).LastUpdated,
+			}
+
+			lastUpdatedKVS = append(lastUpdatedKVS, sellerData)
+
+			<-semaphore
+		}(seller, i, size)
 	}
+	wg.Wait()
 
 	return lastUpdatedKVS
 }
