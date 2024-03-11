@@ -112,6 +112,17 @@ type LastUpdatedKVS struct {
 func CompareData(inputData InputData) Response {
 	results := make([]DataResponse, 0)
 
+	sellerToValidateSiteID := inputData.SellerIDs[:3]
+	if !validateSiteIDFromSellerID(sellerToValidateSiteID, inputData.SiteID) {
+		results = append(results, DataResponse{
+			OperationDetail: "Error validating siteID from sellerID, no match",
+		})
+
+		return Response{
+			DataResponse: results,
+		}
+	}
+
 	if inputData.RefreshProd {
 		refreshProdData(inputData)
 	}
@@ -140,6 +151,21 @@ func CompareData(inputData InputData) Response {
 	return Response{
 		DataResponse: results,
 	}
+}
+
+func validateSiteIDFromSellerID(sellerIDs []int, siteID string) bool {
+	for _, sellerID := range sellerIDs {
+		siteIDApi, err := apicalls.GetSiteIDFromUserAPI(strconv.Itoa(sellerID))
+		if err != nil {
+			return false
+		}
+
+		if siteIDApi != siteID {
+			return false
+		}
+	}
+
+	return true
 }
 
 func refreshProdData(inputData InputData) {

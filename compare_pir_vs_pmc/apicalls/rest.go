@@ -51,6 +51,10 @@ type SpecialOwnersMsg struct {
 	} `json:"msg"`
 }
 
+type SellerAPIResponse struct {
+	SiteID string `json:"site_id,omitempty"`
+}
+
 func CreateCustomData(refreshURL string, siteID string, sellerID int, scope string) bool {
 	msg := RefreshMessage{}
 	msg.Msg.ID.SiteID = siteID
@@ -336,4 +340,55 @@ func UpdateSpecialOwnersIntoKVS(url string, msg SpecialOwnersMsg) bool {
 	log.Println(fmt.Sprintf("Error al guardar special owner %s: Status %s error: %s", "extraerKeyDeMSG", resp.Status, resp.Body))
 
 	return false
+}
+
+func GetSiteIDFromUserAPI(sellerID string) (string, error) {
+	urlFull := fmt.Sprintf("%s%s", "https://internal-api.mercadolibre.com/users/", sellerID)
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, urlFull, nil)
+	if err != nil {
+		log.Println(err)
+
+		return "", fmt.Errorf("error al crear la solicitud HTTP: %v", err)
+	}
+
+	for key, value := range Headers {
+		req.Header.Add(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+
+		return "", fmt.Errorf("error al realizar la solicitud HTTP: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+
+		return "", fmt.Errorf("error al leer el cuerpo de la respuesta: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return "Seller not found", nil
+	}
+
+	var response SellerAPIResponse
+
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		log.Println(err)
+
+		return "", fmt.Errorf("error al decodificar la respuesta JSON: %v", err)
+	}
+
+	if response.SiteID != "" {
+		return response.SiteID, nil
+	}
+
+	return "Seller not found", nil
 }
