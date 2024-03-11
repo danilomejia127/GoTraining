@@ -2,12 +2,12 @@ package services
 
 import (
 	"fmt"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
 	"log"
 	"strconv"
 	"sync"
-
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dtos"
+	"time"
 )
 
 const (
@@ -110,9 +110,13 @@ type LastUpdatedKVS struct {
 
 func CompareData(inputData InputData) Response {
 	results := make([]DataResponse, 0)
+
 	refreshProdData(inputData)
 
-	for _, seller := range inputData.SellerIDs {
+	start := time.Now()
+	log.Println("GetDataCustomFromURL begin....")
+
+	for i, seller := range inputData.SellerIDs {
 		sellerResponse := DataResponse{
 			SiteID:      inputData.SiteID,
 			SellerID:    seller,
@@ -122,6 +126,10 @@ func CompareData(inputData InputData) Response {
 		}
 
 		results = append(results, sellerResponse)
+
+		if i%20 == 0 {
+			log.Println(fmt.Sprintf("GetDataCustomFromURL %d of %d time running: %s", i, len(inputData.SellerIDs), time.Since(start).String()))
+		}
 	}
 
 	return Response{
@@ -132,20 +140,24 @@ func CompareData(inputData InputData) Response {
 func refreshProdData(inputData InputData) {
 	if inputData.RefreshProd {
 		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, 10)
+		semaphore := make(chan struct{}, 20)
+		size := len(inputData.SellerIDs)
 
-		for _, seller := range inputData.SellerIDs {
+		for i, seller := range inputData.SellerIDs {
 			wg.Add(1)
 
-			go func(sellerID int) { // Pasar seller como parámetro
+			go func(sellerID int, i int, size int) { // Pasar seller como parámetro
 				defer wg.Done()
 				semaphore <- struct{}{}
 
-				log.Println("Refreshing seller " + strconv.Itoa(sellerID))
+				if i%20 == 0 {
+					log.Println(fmt.Sprintf("RefreshProdData %d of %d sellers", i, size))
+				}
+
 				apicalls.CreateCustomData(refreshProdURL, inputData.SiteID, sellerID, "prod")
 				apicalls.CreateCustomData(createStagingURL, inputData.SiteID, sellerID, "stag")
 				<-semaphore
-			}(seller) // Pasar el valor actual de seller como argumento
+			}(seller, i, size) // Pasar el valor actual de seller como argumento
 		}
 
 		wg.Wait()
@@ -170,7 +182,7 @@ func HomologateCustomData(dataComparison Response) Response {
 	dataResponseList := make([]DataResponse, 0)
 	sellersWithData := make([]int, 0)
 
-	for _, dataSeller := range dataComparison.DataResponse {
+	for i, dataSeller := range dataComparison.DataResponse {
 		if dataSeller.ProdData == nil && dataSeller.ClonData == nil && dataSeller.StagingData == nil {
 			continue
 		}
@@ -219,7 +231,7 @@ func HomologateCustomData(dataComparison Response) Response {
 			dataResponse.OperationDetail = fmt.Sprintf("Se creó InStaging %d %s", dataSeller.SellerID, strconv.FormatBool(created))
 		}
 
-		if existsInPrd == true && existsInClon == true && existsInStg == true {
+		if existsInPrd && existsInClon && existsInStg {
 			lenProd, lenClon, lenStg, paymentMethodsDiff := validatePaymentMethodsNode(dataSeller)
 
 			dataResponse.DataAnalysis = &DataAnalysis{
@@ -255,6 +267,10 @@ func HomologateCustomData(dataComparison Response) Response {
 		}
 
 		dataResponseList = append(dataResponseList, dataResponse)
+
+		if i%20 == 0 {
+			log.Println(fmt.Sprintf("HomologateCustomData %d of %d", i, len(dataComparison.DataResponse)))
+		}
 	}
 
 	return Response{
