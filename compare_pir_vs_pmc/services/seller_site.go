@@ -2,10 +2,11 @@ package services
 
 import (
 	"encoding/binary"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
-	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dao"
 	"os"
 	"time"
+
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/apicalls"
+	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/dao"
 
 	"log"
 	"strconv"

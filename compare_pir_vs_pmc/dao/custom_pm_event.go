@@ -1,11 +1,12 @@
 package dao
 
 import (
+	"log"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/db"
 	"github.com/mercadolibre/GoTraining/compare_pir_vs_pmc/entity"
-	"log"
-	"time"
 )
 
 // CustomPMEventDAO proporciona métodos para interactuar con la tabla custom_pm_event
