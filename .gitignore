@@ -12,3 +12,4 @@
 /CannotInferPM/logs/*
 .DS_Store
 tmp-mcp-installer/
+.claude/
