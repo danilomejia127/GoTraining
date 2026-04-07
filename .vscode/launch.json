@@ -9,7 +9,8 @@
             "program": "${workspaceFolder}/CannotInferPM/main.go",
             "cwd": "${workspaceFolder}",
             "env": {},
-            "args": []
+            "args": [],
+            "console": "integratedTerminal"
         }
     ]
 }
